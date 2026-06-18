@@ -26,7 +26,11 @@ class GradientFrame(tk.Frame):
             self.canvas.create_line(0, i, width, i, fill=color)
 
     def add_widget(self, widget, **kwargs):
-        self.canvas.create_window(0, 0, window=widget, anchor="nw", **kwargs)
+        # Возвращаем ID окна для последующего изменения размеров
+        return self.canvas.create_window(0, 0, window=widget, anchor="nw", **kwargs)
+
+    def update_widget_size(self, widget_id, width, height):
+        self.canvas.itemconfig(widget_id, width=width, height=height)
 
 
 class RoundedButton(tk.Canvas):
@@ -51,15 +55,6 @@ class RoundedButton(tk.Canvas):
         w = self.winfo_width()
         h = self.winfo_height()
         r = 15
-        shadow_color = "#00000040"
-        self.create_oval(5, 5, 10, 10, outline='', fill=shadow_color)
-        self.create_rectangle(10, 5, w-10, 10, fill=shadow_color, outline='')
-        self.create_rectangle(5, 10, 10, h-10, fill=shadow_color, outline='')
-        self.create_rectangle(w-10, 10, w-5, h-10, fill=shadow_color, outline='')
-        self.create_oval(w-10, 5, w-5, 10, fill=shadow_color, outline='')
-        self.create_rectangle(5, h-10, w-5, h-5, fill=shadow_color, outline='')
-        self.create_oval(5, h-10, 10, h-5, fill=shadow_color, outline='')
-        self.create_oval(w-10, h-10, w-5, h-5, fill=shadow_color, outline='')
         self.create_round_rect(0, 0, w, h, r, fill=self.bg, outline='')
         self.create_text(w//2, h//2, text=self.text, fill=self.fg, font=self.font)
 
@@ -95,14 +90,31 @@ class MathApp(tk.Tk):
         self.container.pack(fill="both", expand=True)
 
         self.frames = {}
+        self.frame_ids = {}  # для хранения ID окон в Canvas
         pages = (MainMenu, TopicSelect, InputPage)
         for F in pages:
             page_name = F.__name__
             frame = F(parent=self.container, controller=self)
             self.frames[page_name] = frame
-            self.container.canvas.create_window(0, 0, window=frame, anchor="nw", width=self.winfo_width(), height=self.winfo_height())
+            # Добавляем в Canvas без фиксированных размеров (позже обновим)
+            wid = self.container.add_widget(frame)
+            self.frame_ids[page_name] = wid
+
+        # Привязываем событие изменения размера окна
+        self.bind("<Configure>", self._resize)
+        # Принудительно обновляем размеры после создания
+        self.after(10, self._resize)  # небольшая задержка для корректного вычисления размеров
 
         self.show_frame("MainMenu")
+
+    def _resize(self, event=None):
+        # Получаем текущие размеры контейнера
+        width = self.container.winfo_width()
+        height = self.container.winfo_height()
+        if width < 10 or height < 10:
+            return  # защита от слишком маленьких значений
+        for page_name, wid in self.frame_ids.items():
+            self.container.update_widget_size(wid, width, height)
 
     def show_frame(self, page_name):
         frame = self.frames[page_name]
@@ -180,6 +192,7 @@ class TopicSelect(tk.Frame):
 
     def tkraise(self, aboveThis=None):
         super().tkraise(aboveThis)
+        # Очищаем старые кнопки типов и уровней
         for widget in self.type_frame.winfo_children():
             if isinstance(widget, RoundedButton):
                 widget.destroy()
@@ -228,7 +241,7 @@ class TopicSelect(tk.Frame):
         grad.pack(fill="both", expand=True)
 
         text_frame = tk.Frame(grad, bg=COLORS['bg_start'])
-        grad.add_widget(text_frame, width=650, height=500)
+        grad.add_widget(text_frame)
 
         scrollbar = tk.Scrollbar(text_frame)
         scrollbar.pack(side="right", fill="y")
@@ -247,7 +260,8 @@ class TopicSelect(tk.Frame):
                                   fg='white', font=("Arial", 12),
                                   width=150, height=35,
                                   command=win.destroy)
-        grad.add_widget(close_btn, width=150, height=35, anchor="s", y=450)
+        # Размещаем кнопку внизу
+        grad.add_widget(close_btn, anchor="s", y=450)
 
 
 class InputPage(tk.Frame):
@@ -585,7 +599,7 @@ class InputPage(tk.Frame):
         grad.pack(fill="both", expand=True)
 
         text_frame = tk.Frame(grad, bg=COLORS['bg_start'])
-        grad.add_widget(text_frame, width=650, height=500)
+        grad.add_widget(text_frame)
 
         scrollbar = tk.Scrollbar(text_frame)
         scrollbar.pack(side="right", fill="y")
@@ -604,4 +618,4 @@ class InputPage(tk.Frame):
                                   fg='white', font=("Arial", 12),
                                   width=150, height=35,
                                   command=sol_win.destroy)
-        grad.add_widget(close_btn, width=150, height=35, anchor="s", y=450)
+        grad.add_widget(close_btn, anchor="s", y=450)
