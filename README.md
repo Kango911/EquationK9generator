@@ -272,7 +272,7 @@ furnished to do so, subject to the following conditions:
 | 🐛 **Сообщить об ошибке** | [GitHub Issues](https://github.com/Kango911/EquationK9generator/issues)           |
 | 💡 **Предложить идею** | [GitHub Discussions](https://github.com/Kango911/EquationK9generator/discussions) |
 | 📧 **Email** | lipenkov.a61@gmail.com                                                            |
-| 🌐 **GitHub** | [Kango911/EquationK9generator](https://github.com/Kango911/EquationK9generator)   |
+| 🌐 **GitHub** | [Kango911](https://github.com/Kango911)   |
 
 ---
 
