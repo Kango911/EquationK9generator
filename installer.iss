@@ -26,13 +26,13 @@ Source: "dist\EquationK9Generator.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Ярлык в меню Пуск
-Name: "{group}\Генератор уравнений"; Filename: "{app}\EquationGenerator.exe"
+Name: "{group}\Генератор уравнений"; Filename: "{app}\EquationK9Generator.exe"
 ; Ярлык на рабочем столе
-Name: "{autodesktop}\Генератор уравнений"; Filename: "{app}\EquationGenerator.exe"
+Name: "{autodesktop}\Генератор уравнений"; Filename: "{app}\EquationK9Generator.exe"
 
 [Run]
 ; Запуск программы после установки (опционально)
-Filename: "{app}\EquationGenerator.exe"; Description: "Запустить приложение"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\EquationK9Generator.exe"; Description: "Запустить приложение"; Flags: postinstall nowait skipifsilent
 
 [UninstallDelete]
 ; Удаление папки приложения
