@@ -4,148 +4,209 @@ from tkinter import ttk, messagebox
 from constants import TOPICS, TYPE_MAP, TYPE_NAMES, LEVELS, COLORS, HELP_TEXTS
 from generators import Generators
 
+class GradientFrame(tk.Frame):
+    def __init__(self, parent, color_start, color_end, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.color_start = color_start
+        self.color_end = color_end
+        self.bind("<Configure>", self._draw_gradient)
+        self.canvas = tk.Canvas(self, highlightthickness=0, bg=color_start)
+        self.canvas.pack(fill="both", expand=True)
+
+    def _draw_gradient(self, event=None):
+        self.canvas.delete("all")
+        width = self.winfo_width()
+        height = self.winfo_height()
+        for i in range(height):
+            ratio = i / height if height > 0 else 0
+            r = int(int(self.color_start[1:3], 16) * (1 - ratio) + int(self.color_end[1:3], 16) * ratio)
+            g = int(int(self.color_start[3:5], 16) * (1 - ratio) + int(self.color_end[3:5], 16) * ratio)
+            b = int(int(self.color_start[5:7], 16) * (1 - ratio) + int(self.color_end[5:7], 16) * ratio)
+            color = f"#{r:02x}{g:02x}{b:02x}"
+            self.canvas.create_line(0, i, width, i, fill=color)
+
+    def add_widget(self, widget, **kwargs):
+        self.canvas.create_window(0, 0, window=widget, anchor="nw", **kwargs)
+
+
+class RoundedButton(tk.Canvas):
+    def __init__(self, parent, text, command=None, bg=COLORS['accent'], fg='white',
+                 hover_bg=COLORS['accent_hover'], font=("Arial", 12), **kwargs):
+        super().__init__(parent, highlightthickness=0, bg=parent['bg'], **kwargs)
+        self.command = command
+        self.bg = bg
+        self.fg = fg
+        self.hover_bg = hover_bg
+        self.text = text
+        self.font = font
+        self._original_bg = bg
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
+        self.bind("<Button-1>", self.on_click)
+        self.bind("<Configure>", self._draw)
+        self._draw()
+
+    def _draw(self, event=None):
+        self.delete("all")
+        w = self.winfo_width()
+        h = self.winfo_height()
+        r = 15
+        shadow_color = "#00000040"
+        self.create_oval(5, 5, 10, 10, outline='', fill=shadow_color)
+        self.create_rectangle(10, 5, w-10, 10, fill=shadow_color, outline='')
+        self.create_rectangle(5, 10, 10, h-10, fill=shadow_color, outline='')
+        self.create_rectangle(w-10, 10, w-5, h-10, fill=shadow_color, outline='')
+        self.create_oval(w-10, 5, w-5, 10, fill=shadow_color, outline='')
+        self.create_rectangle(5, h-10, w-5, h-5, fill=shadow_color, outline='')
+        self.create_oval(5, h-10, 10, h-5, fill=shadow_color, outline='')
+        self.create_oval(w-10, h-10, w-5, h-5, fill=shadow_color, outline='')
+        self.create_round_rect(0, 0, w, h, r, fill=self.bg, outline='')
+        self.create_text(w//2, h//2, text=self.text, fill=self.fg, font=self.font)
+
+    def create_round_rect(self, x1, y1, x2, y2, r, **kwargs):
+        points = (x1+r, y1, x2-r, y1, x2, y1, x2, y1+r, x2, y2-r, x2, y2, x2-r, y2, x1+r, y2, x1, y2, x1, y2-r, x1, y1+r, x1, y1)
+        self.create_polygon(points, smooth=True, **kwargs)
+
+    def on_enter(self, event):
+        self.bg = self.hover_bg
+        self._draw()
+
+    def on_leave(self, event):
+        self.bg = self._original_bg
+        self._draw()
+
+    def on_click(self, event):
+        if self.command:
+            self.command()
+
+
 class MathApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Генератор уравнений и неравенств")
-        self.geometry("800x700")
+        self.geometry("900x750")
+        self.minsize(800, 650)
         self.resizable(True, True)
-        self.configure(bg=COLORS['bg'])
+        self.configure(bg=COLORS['bg_start'])
 
         self.data = {}
 
-        container = tk.Frame(self, bg=COLORS['bg'])
-        container.pack(side="top", fill="both", expand=True)
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
+        self.container = GradientFrame(self, COLORS['bg_start'], COLORS['bg_end'])
+        self.container.pack(fill="both", expand=True)
 
         self.frames = {}
-        pages = (MainMenu, TopicSelect, InputPage)  # HelpPage больше нет
+        pages = (MainMenu, TopicSelect, InputPage)
         for F in pages:
             page_name = F.__name__
-            frame = F(parent=container, controller=self)
+            frame = F(parent=self.container, controller=self)
             self.frames[page_name] = frame
-            frame.grid(row=0, column=0, sticky="nsew")
+            self.container.canvas.create_window(0, 0, window=frame, anchor="nw", width=self.winfo_width(), height=self.winfo_height())
 
         self.show_frame("MainMenu")
 
     def show_frame(self, page_name):
         frame = self.frames[page_name]
         frame.tkraise()
+        self.update_idletasks()
+        self.container._draw_gradient()
 
 
 class MainMenu(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg=COLORS['bg'])
+        super().__init__(parent, bg=COLORS['bg_start'])
         self.controller = controller
 
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(len(TOPICS)+2, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        self.main_frame = tk.Frame(self, bg=COLORS['bg_start'])
+        self.main_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-        title = tk.Label(self, text="Генератор математических примеров",
-                         font=("Arial", 20, "bold"), bg=COLORS['bg'], fg=COLORS['fg'])
-        title.grid(row=0, column=0, pady=30, sticky="n")
+        title = tk.Label(self.main_frame, text="✨ Генератор математических примеров ✨",
+                         font=("Arial", 24, "bold"), bg=COLORS['bg_start'], fg=COLORS['fg'])
+        title.pack(pady=(0, 30))
 
-        row = 1
         for text, topic_id in TOPICS:
-            btn = tk.Button(self, text=text, font=("Arial", 12),
-                            bg=COLORS['accent'], fg='white', activebackground=COLORS['accent_hover'],
-                            command=lambda t=topic_id: self.select_topic(t))
-            btn.grid(row=row, column=0, pady=5, padx=20, sticky="ew")
-            row += 1
+            btn = RoundedButton(self.main_frame, text=text,
+                                bg=COLORS['accent'], hover_bg=COLORS['accent_hover'],
+                                fg='white', font=("Arial", 12),
+                                width=300, height=40,
+                                command=lambda t=topic_id: self.select_topic(t))
+            btn.pack(pady=6)
 
-        # Кнопка "Помощь" открывает отдельное окно
-        help_btn = tk.Button(self, text="❓ Помощь", font=("Arial", 12),
-                             bg='#f39c12', fg='white', activebackground='#e67e22',
-                             command=self.show_help_window)
-        help_btn.grid(row=row, column=0, pady=10, padx=20, sticky="ew")
-        row += 1
-
-        exit_btn = tk.Button(self, text="Выход", font=("Arial", 12),
-                             bg=COLORS['danger'], fg='white', activebackground='#a05070',
-                             command=self.quit)
-        exit_btn.grid(row=row, column=0, pady=30, padx=20, sticky="ew")
+        exit_btn = RoundedButton(self.main_frame, text="🚪 Выход",
+                                 bg=COLORS['danger'], hover_bg='#F87171',
+                                 fg='white', font=("Arial", 12),
+                                 width=200, height=40,
+                                 command=self.quit)
+        exit_btn.pack(pady=20)
 
     def select_topic(self, topic_id):
         self.controller.data['topic'] = topic_id
         self.controller.show_frame("TopicSelect")
 
-    def show_help_window(self):
-        """Открывает отдельное окно с помощью для выбранной темы."""
-        topic = self.controller.data.get('topic', 'linear')
-        help_text = HELP_TEXTS.get(topic, "Описание для этого раздела пока отсутствует.")
-
-        help_win = tk.Toplevel(self)
-        help_win.title("Помощь")
-        help_win.geometry("650x500")
-        help_win.configure(bg=COLORS['bg'])
-
-        text_widget = tk.Text(help_win, wrap="word", font=("Arial", 12),
-                              bg=COLORS['bg_light'], fg=COLORS['fg'])
-        text_widget.pack(fill="both", expand=True, padx=10, pady=10)
-        text_widget.insert("1.0", help_text)
-        text_widget.config(state="disabled")
-
-        close_btn = tk.Button(help_win, text="Закрыть", font=("Arial", 12),
-                              bg=COLORS['danger'], fg='white', command=help_win.destroy)
-        close_btn.pack(pady=10)
-
 
 class TopicSelect(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg=COLORS['bg'])
+        super().__init__(parent, bg=COLORS['bg_start'])
         self.controller = controller
 
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(3, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        main_frame = tk.Frame(self, bg=COLORS['bg_start'])
+        main_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-        tk.Label(self, text="Выберите тип задания", font=("Arial", 18, "bold"),
-                 bg=COLORS['bg'], fg=COLORS['fg']).grid(row=0, column=0, pady=20, sticky="n")
+        tk.Label(main_frame, text="🔮 Выберите тип задания", font=("Arial", 20, "bold"),
+                 bg=COLORS['bg_start'], fg=COLORS['fg']).pack(pady=(0, 20))
 
-        self.type_frame = tk.Frame(self, bg=COLORS['bg'])
-        self.type_frame.grid(row=1, column=0, pady=10, sticky="n")
-        self.type_frame.grid_columnconfigure(0, weight=1)
+        self.type_frame = tk.Frame(main_frame, bg=COLORS['bg_start'])
+        self.type_frame.pack(pady=10)
+        tk.Label(self.type_frame, text="Тип:", font=("Arial", 14), bg=COLORS['bg_start'], fg=COLORS['fg']).pack(side='left', padx=10)
 
-        self.level_frame = tk.Frame(self, bg=COLORS['bg'])
-        self.level_frame.grid(row=2, column=0, pady=10, sticky="n")
-        self.level_frame.grid_columnconfigure(0, weight=1)
+        self.level_frame = tk.Frame(main_frame, bg=COLORS['bg_start'])
+        self.level_frame.pack(pady=10)
+        tk.Label(self.level_frame, text="Сложность:", font=("Arial", 14), bg=COLORS['bg_start'], fg=COLORS['fg']).pack(side='left', padx=10)
 
-        back_btn = tk.Button(self, text="Назад", font=("Arial", 12),
-                             bg=COLORS['danger'], fg='white', activebackground='#a05070',
-                             command=lambda: controller.show_frame("MainMenu"))
-        back_btn.grid(row=3, column=0, pady=20, padx=20, sticky="ew")
+        help_btn = RoundedButton(main_frame, text="❓ Помощь",
+                                 bg='#F59E0B', hover_bg='#FBBF24',
+                                 fg='white', font=("Arial", 12),
+                                 width=200, height=35,
+                                 command=self.show_help)
+        help_btn.pack(pady=10)
+
+        back_btn = RoundedButton(main_frame, text="⬅ Назад",
+                                 bg=COLORS['danger'], hover_bg='#F87171',
+                                 fg='white', font=("Arial", 12),
+                                 width=200, height=35,
+                                 command=lambda: controller.show_frame("MainMenu"))
+        back_btn.pack(pady=5)
+
+        self.main_frame = main_frame
 
     def tkraise(self, aboveThis=None):
         super().tkraise(aboveThis)
         for widget in self.type_frame.winfo_children():
-            widget.destroy()
+            if isinstance(widget, RoundedButton):
+                widget.destroy()
         for widget in self.level_frame.winfo_children():
-            widget.destroy()
+            if isinstance(widget, RoundedButton):
+                widget.destroy()
 
         topic = self.controller.data.get('topic', 'linear')
         types = TYPE_MAP.get(topic, [])
 
-        tk.Label(self.type_frame, text="Тип задания:", font=("Arial", 14),
-                 bg=COLORS['bg'], fg=COLORS['fg']).grid(row=0, column=0, pady=5)
-        for i, type_id in enumerate(types):
+        for type_id in types:
             text = TYPE_NAMES.get(type_id, type_id)
-            btn = tk.Button(self.type_frame, text=text, font=("Arial", 12),
-                            bg=COLORS['accent'], fg='white', activebackground=COLORS['accent_hover'],
-                            command=lambda t=type_id: self.select_type(t))
-            btn.grid(row=1, column=i, padx=10, pady=5, sticky="ew")
-            self.type_frame.grid_columnconfigure(i, weight=1)
+            btn = RoundedButton(self.type_frame, text=text,
+                                bg=COLORS['accent'], hover_bg=COLORS['accent_hover'],
+                                fg='white', font=("Arial", 11),
+                                width=120, height=30,
+                                command=lambda t=type_id: self.select_type(t))
+            btn.pack(side='left', padx=5)
 
-        tk.Label(self.level_frame, text="Уровень сложности:", font=("Arial", 14),
-                 bg=COLORS['bg'], fg=COLORS['fg']).grid(row=0, column=0, columnspan=3, pady=10)
         level_colors = [COLORS['level_easy'], COLORS['level_medium'], COLORS['level_hard']]
         for i, (level_id, level_name) in enumerate(LEVELS.items()):
-            btn = tk.Button(self.level_frame, text=level_name, font=("Arial", 12),
-                            bg=level_colors[i], fg='white',
-                            command=lambda l=level_id: self.select_level(l))
-            btn.grid(row=1, column=i, padx=10, pady=5, sticky="ew")
-            self.level_frame.grid_columnconfigure(i, weight=1)
+            btn = RoundedButton(self.level_frame, text=level_name,
+                                bg=level_colors[i], hover_bg='#FFFFFF40',
+                                fg='white', font=("Arial", 11),
+                                width=120, height=30,
+                                command=lambda l=level_id: self.select_level(l))
+            btn.pack(side='left', padx=5)
 
     def select_type(self, type_id):
         self.controller.data['type'] = type_id
@@ -155,54 +216,78 @@ class TopicSelect(tk.Frame):
         if 'type' in self.controller.data and 'level' in self.controller.data:
             self.controller.show_frame("InputPage")
 
+    def show_help(self):
+        topic = self.controller.data.get('topic', 'linear')
+        help_text = HELP_TEXTS.get(topic, "Описание отсутствует.")
+        win = tk.Toplevel(self)
+        win.title("Помощь")
+        win.geometry("650x500")
+        win.configure(bg=COLORS['bg_start'])
+
+        grad = GradientFrame(win, COLORS['bg_start'], COLORS['bg_end'])
+        grad.pack(fill="both", expand=True)
+
+        text_frame = tk.Frame(grad, bg=COLORS['bg_start'])
+        grad.add_widget(text_frame, width=650, height=500)
+
+        scrollbar = tk.Scrollbar(text_frame)
+        scrollbar.pack(side="right", fill="y")
+
+        text_widget = tk.Text(text_frame, wrap="word", font=("Arial", 12),
+                              bg=COLORS['entry_bg'], fg=COLORS['fg'],
+                              yscrollcommand=scrollbar.set,
+                              relief='flat', borderwidth=0)
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=text_widget.yview)
+        text_widget.insert("1.0", help_text)
+        text_widget.config(state="disabled")
+
+        close_btn = RoundedButton(grad, text="Закрыть",
+                                  bg=COLORS['danger'], hover_bg='#F87171',
+                                  fg='white', font=("Arial", 12),
+                                  width=150, height=35,
+                                  command=win.destroy)
+        grad.add_widget(close_btn, width=150, height=35, anchor="s", y=450)
+
 
 class InputPage(tk.Frame):
     def __init__(self, parent, controller):
-        super().__init__(parent, bg=COLORS['bg'])
+        super().__init__(parent, bg=COLORS['bg_start'])
         self.controller = controller
         self.entries = []
         self.current_example = ""
         self.solve_params = {}
 
-        self.grid_rowconfigure(0, weight=0)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(2, weight=0)
-        self.grid_columnconfigure(0, weight=1)
+        main_frame = tk.Frame(self, bg=COLORS['bg_start'])
+        main_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-        tk.Label(self, text="Введите данные", font=("Arial", 18, "bold"),
-                 bg=COLORS['bg'], fg=COLORS['fg']).grid(row=0, column=0, pady=20, sticky="n")
+        tk.Label(main_frame, text="📝 Введите данные", font=("Arial", 20, "bold"),
+                 bg=COLORS['bg_start'], fg=COLORS['fg']).pack(pady=(0, 15))
 
-        content_frame = tk.Frame(self, bg=COLORS['bg'])
-        content_frame.grid(row=1, column=0, sticky="nsew", padx=20)
-        content_frame.grid_rowconfigure(0, weight=0)
-        content_frame.grid_rowconfigure(1, weight=1)
-        content_frame.grid_columnconfigure(0, weight=1)
+        self.input_frame = tk.Frame(main_frame, bg=COLORS['bg_start'])
+        self.input_frame.pack(pady=10)
 
-        self.input_frame = tk.Frame(content_frame, bg=COLORS['bg'])
-        self.input_frame.grid(row=0, column=0, sticky="ew", pady=10)
-        self.input_frame.grid_columnconfigure(1, weight=1)
+        self.result_frame = tk.Frame(main_frame, bg=COLORS['bg_start'])
+        self.result_frame.pack(pady=10, fill='x')
 
-        self.result_frame = tk.Frame(content_frame, bg=COLORS['bg'])
-        self.result_frame.grid(row=1, column=0, sticky="nsew", pady=10)
-        self.result_frame.grid_columnconfigure(0, weight=1)
-        self.result_frame.grid_rowconfigure(0, weight=0)
-        self.result_frame.grid_rowconfigure(1, weight=1)
-        self.result_frame.grid_rowconfigure(2, weight=0)
+        btn_frame = tk.Frame(main_frame, bg=COLORS['bg_start'])
+        btn_frame.pack(pady=15)
 
-        btn_frame = tk.Frame(self, bg=COLORS['bg'])
-        btn_frame.grid(row=2, column=0, pady=20, sticky="ew")
-        btn_frame.grid_columnconfigure(0, weight=1)
-        btn_frame.grid_columnconfigure(1, weight=1)
+        generate_btn = RoundedButton(btn_frame, text="🚀 Сгенерировать",
+                                     bg=COLORS['success'], hover_bg='#A78BFA',
+                                     fg='white', font=("Arial", 12),
+                                     width=200, height=40,
+                                     command=self.generate)
+        generate_btn.pack(side='left', padx=10)
 
-        generate_btn = tk.Button(btn_frame, text="Сгенерировать", font=("Arial", 14),
-                                 bg=COLORS['success'], fg='white', activebackground='#9b7ac7')
-        generate_btn.grid(row=0, column=0, padx=10, sticky="ew")
-        generate_btn.config(command=self.generate)
+        back_btn = RoundedButton(btn_frame, text="⬅ Назад",
+                                 bg=COLORS['danger'], hover_bg='#F87171',
+                                 fg='white', font=("Arial", 12),
+                                 width=150, height=40,
+                                 command=lambda: controller.show_frame("TopicSelect"))
+        back_btn.pack(side='left', padx=10)
 
-        back_btn = tk.Button(btn_frame, text="Назад", font=("Arial", 14),
-                             bg=COLORS['danger'], fg='white', activebackground='#a05070')
-        back_btn.grid(row=0, column=1, padx=10, sticky="ew")
-        back_btn.config(command=lambda: controller.show_frame("TopicSelect"))
+        self.main_frame = main_frame
 
     def tkraise(self, aboveThis=None):
         super().tkraise(aboveThis)
@@ -219,8 +304,8 @@ class InputPage(tk.Frame):
         level = self.controller.data.get('level', 'easy')
 
         level_name = LEVELS.get(level, '')
-        tk.Label(self.input_frame, text=f"Уровень сложности: {level_name}", font=("Arial", 12, "bold"),
-                 bg=COLORS['bg'], fg=COLORS['highlight']).grid(row=0, column=0, columnspan=2, pady=(0, 10))
+        tk.Label(self.input_frame, text=f"Уровень сложности: {level_name}",
+                 font=("Arial", 12, "bold"), bg=COLORS['bg_start'], fg=COLORS['highlight']).grid(row=0, column=0, columnspan=2, pady=(0, 10))
 
         labels = []
         if topic == 'linear':
@@ -269,36 +354,42 @@ class InputPage(tk.Frame):
 
         row = 1
         for i, label in enumerate(labels):
-            frame = tk.Frame(self.input_frame, bg=COLORS['bg'])
+            frame = tk.Frame(self.input_frame, bg=COLORS['bg_start'])
             frame.grid(row=row, column=0, sticky="ew", pady=5, columnspan=2)
             frame.grid_columnconfigure(0, weight=0)
             frame.grid_columnconfigure(1, weight=1)
 
-            lbl = tk.Label(frame, text=label, font=("Arial", 12), bg=COLORS['bg'], fg=COLORS['fg'])
+            lbl = tk.Label(frame, text=label, font=("Arial", 11), bg=COLORS['bg_start'], fg=COLORS['fg'])
             lbl.grid(row=0, column=0, padx=(0, 10), sticky="w")
 
             if "Тип решения" in label:
-                combo = ttk.Combobox(frame, values=['gt', 'lt', 'ge', 'le'], state='readonly', font=("Arial", 12))
+                combo = ttk.Combobox(frame, values=['gt', 'lt', 'ge', 'le'],
+                                     state='readonly', font=("Arial", 11),
+                                     background=COLORS['entry_bg'], foreground=COLORS['fg'])
                 combo.grid(row=0, column=1, sticky="ew")
                 combo.set('gt')
                 self.entries.append(combo)
-                hint_frame = tk.Frame(self.input_frame, bg=COLORS['bg'])
+                hint_frame = tk.Frame(self.input_frame, bg=COLORS['bg_start'])
                 hint_frame.grid(row=row+1, column=0, sticky="ew", pady=(0, 10), columnspan=2)
                 hint_frame.grid_columnconfigure(0, weight=1)
                 hint_text = "gt - больше, lt - меньше, ge - больше или равно, le - меньше или равно"
-                hint_lbl = tk.Label(hint_frame, text=hint_text, font=("Arial", 10),
-                                    bg=COLORS['bg'], fg='#c9b0e0', justify='left')
+                hint_lbl = tk.Label(hint_frame, text=hint_text, font=("Arial", 9),
+                                    bg=COLORS['bg_start'], fg='#A5B4FC', justify='left')
                 hint_lbl.grid(row=0, column=0, sticky="w")
                 row += 1
             else:
-                entry = tk.Entry(frame, font=("Arial", 12), bg='#3a2560', fg='white',
-                                 insertbackground='white')
+                entry = tk.Entry(frame, font=("Arial", 11),
+                                 bg=COLORS['entry_bg'], fg=COLORS['fg'],
+                                 insertbackground=COLORS['fg'],
+                                 relief='flat', borderwidth=1,
+                                 highlightcolor=COLORS['accent'],
+                                 highlightthickness=1)
                 entry.grid(row=0, column=1, sticky="ew")
                 self.entries.append(entry)
             row += 1
 
         if not self.entries:
-            tk.Label(self.input_frame, text="Нет полей для ввода", bg=COLORS['bg'], fg=COLORS['fg']).grid()
+            tk.Label(self.input_frame, text="Нет полей для ввода", bg=COLORS['bg_start'], fg=COLORS['fg']).grid()
 
     def generate(self):
         try:
@@ -416,16 +507,17 @@ class InputPage(tk.Frame):
     def show_result(self, result):
         for widget in self.result_frame.winfo_children():
             widget.destroy()
-        tk.Label(self.result_frame, text="Сгенерированный пример:", font=("Arial", 14, "bold"),
-                 bg=COLORS['bg'], fg=COLORS['fg']).grid(row=0, column=0, pady=(0, 10), sticky="w")
-        result_label = tk.Label(self.result_frame, text=result, font=("Arial", 14),
-                                bg=COLORS['bg'], fg=COLORS['highlight'], wraplength=600, justify='left')
-        result_label.grid(row=1, column=0, sticky="nw")
-        solve_btn = tk.Button(self.result_frame, text="📝 Показать решение", font=("Arial", 12),
-                              bg='#f39c12', fg='white', activebackground='#e67e22',
-                              command=self.show_solution)
-        solve_btn.grid(row=2, column=0, pady=10, sticky="w")
-        self.result_frame.grid_rowconfigure(1, weight=1)
+        tk.Label(self.result_frame, text="✨ Сгенерированный пример:", font=("Arial", 14, "bold"),
+                 bg=COLORS['bg_start'], fg=COLORS['fg']).pack(anchor='w')
+        result_label = tk.Label(self.result_frame, text=result, font=("Arial", 13),
+                                bg=COLORS['bg_start'], fg=COLORS['highlight'], wraplength=600, justify='left')
+        result_label.pack(anchor='w', pady=(5, 10))
+        solve_btn = RoundedButton(self.result_frame, text="📝 Показать решение",
+                                  bg='#F59E0B', hover_bg='#FBBF24',
+                                  fg='white', font=("Arial", 11),
+                                  width=200, height=30,
+                                  command=self.show_solution)
+        solve_btn.pack(anchor='w', pady=5)
 
     def show_solution(self):
         if not self.current_example or not self.solve_params:
@@ -484,18 +576,32 @@ class InputPage(tk.Frame):
         else:
             solution_text = "Решение для этого раздела пока не реализовано."
 
-        # Открываем новое окно с решением
         sol_win = tk.Toplevel(self)
         sol_win.title("Решение")
         sol_win.geometry("650x500")
-        sol_win.configure(bg=COLORS['bg'])
+        sol_win.configure(bg=COLORS['bg_start'])
 
-        text_widget = tk.Text(sol_win, wrap="word", font=("Arial", 12),
-                              bg=COLORS['bg_light'], fg=COLORS['fg'])
-        text_widget.pack(fill="both", expand=True, padx=10, pady=10)
+        grad = GradientFrame(sol_win, COLORS['bg_start'], COLORS['bg_end'])
+        grad.pack(fill="both", expand=True)
+
+        text_frame = tk.Frame(grad, bg=COLORS['bg_start'])
+        grad.add_widget(text_frame, width=650, height=500)
+
+        scrollbar = tk.Scrollbar(text_frame)
+        scrollbar.pack(side="right", fill="y")
+
+        text_widget = tk.Text(text_frame, wrap="word", font=("Arial", 12),
+                              bg=COLORS['entry_bg'], fg=COLORS['fg'],
+                              yscrollcommand=scrollbar.set,
+                              relief='flat', borderwidth=0)
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=text_widget.yview)
         text_widget.insert("1.0", solution_text)
         text_widget.config(state="disabled")
 
-        close_btn = tk.Button(sol_win, text="Закрыть", font=("Arial", 12),
-                              bg=COLORS['danger'], fg='white', command=sol_win.destroy)
-        close_btn.pack(pady=10)
+        close_btn = RoundedButton(grad, text="Закрыть",
+                                  bg=COLORS['danger'], hover_bg='#F87171',
+                                  fg='white', font=("Arial", 12),
+                                  width=150, height=35,
+                                  command=sol_win.destroy)
+        grad.add_widget(close_btn, width=150, height=35, anchor="s", y=450)

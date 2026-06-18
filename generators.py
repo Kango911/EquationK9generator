@@ -3,9 +3,6 @@ import random
 import math
 
 class Generators:
-    """Все генераторы возвращают (строка_примера, словарь_параметров)."""
-
-    # ---------- Вспомогательные методы ----------
     @staticmethod
     def _random_int(level, low, high, extreme=False):
         if level == 'easy':
@@ -27,9 +24,6 @@ class Generators:
             choices = [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         return random.choice(choices)
 
-    # ==================== ГЕНЕРАТОРЫ ====================
-
-    # ---------- Линейные ----------
     @staticmethod
     def linear_equation(root, level='easy'):
         a = Generators._random_coeff(level)
@@ -62,7 +56,6 @@ class Generators:
             return f"{left} {sign} {c}", {'a': a, 'b': b, 'c': c, 'sign': sign}
         return f"{left} {sign} 0", {'a': a, 'b': b, 'c': 0, 'sign': sign}
 
-    # ---------- Квадратные ----------
     @staticmethod
     def quadratic_equation(roots, level='easy'):
         if len(roots) == 1:
@@ -118,7 +111,6 @@ class Generators:
         expr = " ".join(terms).replace("+ -", "- ")
         return f"{expr} {sign} 0", {'a': a, 'b': b, 'c': c, 'roots': [r1, r2], 'sign': sign}
 
-    # ---------- Кубические ----------
     @staticmethod
     def cubic_equation(roots, level='easy'):
         if len(roots) == 0:
@@ -155,7 +147,6 @@ class Generators:
         expr = " ".join(terms).replace("+ -", "- ")
         return f"{expr} = 0", {'a': A, 'b': B, 'c': C, 'd': D, 'roots': roots}
 
-    # ---------- Рациональные ----------
     @staticmethod
     def rational_equation(root, level='easy'):
         a = Generators._random_coeff(level)
@@ -196,7 +187,6 @@ class Generators:
         den = f"{c}x + {d}".replace("+ -", "- ")
         return f"({num}) / ({den}) {sign} 0", {'a': a, 'b': b, 'c': c, 'd': d, 'root': root, 'sign': sign}
 
-    # ---------- Иррациональные ----------
     @staticmethod
     def irrational_equation(root, level='easy'):
         if level == 'easy':
@@ -235,7 +225,6 @@ class Generators:
             b = c*c - a*root
             return f"sqrt({a}x + {b}) <= {c}", {'a': a, 'b': b, 'c': c, 'root': root, 'sign': '<='}
 
-    # ---------- Показательные ----------
     @staticmethod
     def exponential_equation(root, level='easy'):
         if level == 'easy':
@@ -271,7 +260,6 @@ class Generators:
             return f"{base}^{{{k}x}} {sign} {b}", {'base': base, 'k': k, 'b': b, 'root': root, 'sign': sign}
         return f"{base}^x {sign} {b}", {'base': base, 'k': 1, 'b': b, 'root': root, 'sign': sign}
 
-    # ---------- Логарифмические ----------
     @staticmethod
     def logarithmic_equation(root, level='easy'):
         base = random.choice([2, 3]) if level == 'easy' else random.choice([2, 3, 4, 5])
@@ -312,7 +300,6 @@ class Generators:
             sign = '<' if sol_type == 'lt' else '<='
         return f"log_{base}(x) {sign} {b}", {'base': base, 'b': b, 'root': root, 'sign': sign}
 
-    # ---------- Тригонометрические ----------
     @staticmethod
     def trigonometric_equation(root, level='easy'):
         if level == 'easy':
@@ -394,7 +381,6 @@ class Generators:
         else:
             return f"{func}({k}x) {sign} {val_str}", {'func': func, 'k': k, 'val': val, 'root': root, 'sign': sign}
 
-    # ---------- Системы линейные ----------
     @staticmethod
     def system_linear(root1, root2, level='easy'):
         if level == 'easy':
@@ -424,7 +410,6 @@ class Generators:
         eq2 = f"{a2}x + {b2}y = {c2}"
         return f"{eq1}\n{eq2}", {'a1': a1, 'b1': b1, 'c1': c1, 'a2': a2, 'b2': b2, 'c2': c2, 'x': root1, 'y': root2}
 
-    # ---------- Системы нелинейные ----------
     @staticmethod
     def system_nonlinear(root1, root2, level='easy'):
         S = root1 + root2
@@ -438,8 +423,7 @@ class Generators:
         eq2 = f"x * y = {P}"
         return f"{eq1}\n{eq2}", {'S': S, 'P': P, 'x': root1, 'y': root2}
 
-    # ==================== МЕТОДЫ РЕШЕНИЯ (ПОШАГОВЫЕ) ====================
-
+    # ==================== МЕТОДЫ РЕШЕНИЯ ====================
     @staticmethod
     def solve_linear_equation(a, b, c=0):
         steps = []
