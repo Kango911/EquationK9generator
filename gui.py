@@ -1,7 +1,7 @@
 # gui.py
 import tkinter as tk
-from tkinter import messagebox
-from constants import TOPICS, TYPE_MAP, TYPE_NAMES, INEQ_TYPE_HINTS
+from tkinter import ttk, messagebox
+from constants import TOPICS, TYPE_MAP, TYPE_NAMES
 from generators import Generators
 
 class MathApp(tk.Tk):
@@ -9,13 +9,11 @@ class MathApp(tk.Tk):
         super().__init__()
         self.title("Генератор уравнений и неравенств")
         self.geometry("700x600")
-        # Разрешаем изменение размера окна
         self.resizable(True, True)
         self.configure(bg='#2c3e50')
 
         self.data = {}
 
-        # Контейнер для всех страниц
         container = tk.Frame(self, bg='#2c3e50')
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
@@ -41,16 +39,14 @@ class MainMenu(tk.Frame):
         super().__init__(parent, bg='#34495e')
         self.controller = controller
 
-        # Разрешаем растягивание
-        self.grid_rowconfigure(0, weight=1)  # заголовок
-        self.grid_rowconfigure(len(TOPICS)+1, weight=1)  # кнопка выхода
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(len(TOPICS)+1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         title = tk.Label(self, text="Генератор математических примеров",
                          font=("Arial", 20, "bold"), bg='#34495e', fg='white')
         title.grid(row=0, column=0, pady=30, sticky="n")
 
-        # Кнопки тем занимают всю ширину
         row = 1
         for text, topic_id in TOPICS:
             btn = tk.Button(self, text=text, font=("Arial", 12),
@@ -113,37 +109,33 @@ class InputPage(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent, bg='#34495e')
         self.controller = controller
-        self.entries = []
+        self.entries = []          # список виджетов для ввода (Entry или Combobox)
+        self.entry_values = []     # для хранения значений (для Combobox будем хранить ссылку на переменную)
 
-        # Основная сетка: 3 строки (заголовок, поля ввода, кнопки)
-        self.grid_rowconfigure(0, weight=0)  # заголовок
-        self.grid_rowconfigure(1, weight=1)  # поля ввода + результат
-        self.grid_rowconfigure(2, weight=0)  # кнопки
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=0)
         self.grid_columnconfigure(0, weight=1)
 
         tk.Label(self, text="Введите данные", font=("Arial", 18, "bold"),
                  bg='#34495e', fg='white').grid(row=0, column=0, pady=20, sticky="n")
 
-        # Контейнер для полей ввода и результата (чтобы они масштабировались)
         content_frame = tk.Frame(self, bg='#34495e')
         content_frame.grid(row=1, column=0, sticky="nsew", padx=20)
-        content_frame.grid_rowconfigure(0, weight=0)  # поля ввода
-        content_frame.grid_rowconfigure(1, weight=1)  # результат (занимает оставшееся место)
+        content_frame.grid_rowconfigure(0, weight=0)
+        content_frame.grid_rowconfigure(1, weight=1)
         content_frame.grid_columnconfigure(0, weight=1)
 
-        # Фрейм для полей ввода
         self.input_frame = tk.Frame(content_frame, bg='#34495e')
         self.input_frame.grid(row=0, column=0, sticky="ew", pady=10)
-        self.input_frame.grid_columnconfigure(1, weight=1)  # поле ввода растягивается
+        self.input_frame.grid_columnconfigure(1, weight=1)
 
-        # Фрейм для результата
         self.result_frame = tk.Frame(content_frame, bg='#34495e')
         self.result_frame.grid(row=1, column=0, sticky="nsew", pady=10)
         self.result_frame.grid_columnconfigure(0, weight=1)
         self.result_frame.grid_rowconfigure(0, weight=0)
         self.result_frame.grid_rowconfigure(1, weight=1)
 
-        # Фрейм для кнопок
         btn_frame = tk.Frame(self, bg='#34495e')
         btn_frame.grid(row=2, column=0, pady=20, sticky="ew")
         btn_frame.grid_columnconfigure(0, weight=1)
@@ -161,87 +153,105 @@ class InputPage(tk.Frame):
 
     def tkraise(self, aboveThis=None):
         super().tkraise(aboveThis)
-        # Очищаем старые поля ввода
+        # Очищаем старые поля
         for widget in self.input_frame.winfo_children():
             widget.destroy()
         self.entries.clear()
+        self.entry_values.clear()
         for widget in self.result_frame.winfo_children():
             widget.destroy()
 
         topic = self.controller.data.get('topic', 'linear')
         type_ = self.controller.data.get('type', 'eq')
 
-        # Определяем метки для полей ввода
-        labels = []
+        # Определяем метки и типы полей
+        fields = []  # список кортежей (label_text, field_type, options)
+        # field_type: 'entry' - обычное поле ввода, 'combobox' - выпадающий список
         if topic == 'linear':
             if type_ == 'eq':
-                labels = ["Корень уравнения (число):"]
+                fields = [("Корень уравнения (число):", 'entry', None)]
             else:
-                labels = ["Граница (число):", "Тип решения (gt, lt, ge, le):"]
+                fields = [("Граница (число):", 'entry', None),
+                          ("Тип решения:", 'combobox', ['gt', 'lt', 'ge', 'le'])]
         elif topic == 'quadratic':
             if type_ == 'eq':
-                labels = ["Корни через пробел (1 или 2 числа):"]
+                fields = [("Корни через пробел (1 или 2 числа):", 'entry', None)]
             else:
-                labels = ["Корни через пробел (2 числа):", "Тип решения (gt, lt, ge, le):"]
+                fields = [("Корни через пробел (2 числа):", 'entry', None),
+                          ("Тип решения:", 'combobox', ['gt', 'lt', 'ge', 'le'])]
         elif topic == 'cubic':
-            labels = ["Корни через пробел (до 3 чисел):"]
+            fields = [("Корни через пробел (до 3 чисел):", 'entry', None)]
         elif topic == 'rational':
             if type_ == 'eq':
-                labels = ["Корень (число):"]
+                fields = [("Корень (число):", 'entry', None)]
             else:
-                labels = ["Корень (число):", "Тип решения (gt, lt, ge, le):"]
+                fields = [("Корень (число):", 'entry', None),
+                          ("Тип решения:", 'combobox', ['gt', 'lt', 'ge', 'le'])]
         elif topic == 'irrational':
             if type_ == 'eq':
-                labels = ["Корень (число):"]
+                fields = [("Корень (число):", 'entry', None)]
             else:
-                labels = ["Корень (число):", "Тип решения (gt, lt, ge, le):"]
+                fields = [("Корень (число):", 'entry', None),
+                          ("Тип решения:", 'combobox', ['gt', 'lt', 'ge', 'le'])]
         elif topic == 'exponential':
             if type_ == 'eq':
-                labels = ["Корень (число):"]
+                fields = [("Корень (число):", 'entry', None)]
             else:
-                labels = ["Корень (число):", "Тип решения (gt, lt, ge, le):"]
+                fields = [("Корень (число):", 'entry', None),
+                          ("Тип решения:", 'combobox', ['gt', 'lt', 'ge', 'le'])]
         elif topic == 'logarithmic':
             if type_ == 'eq':
-                labels = ["Корень (число):"]
+                fields = [("Корень (число):", 'entry', None)]
             else:
-                labels = ["Корень (число):", "Тип решения (gt, lt, ge, le):"]
+                fields = [("Корень (число):", 'entry', None),
+                          ("Тип решения:", 'combobox', ['gt', 'lt', 'ge', 'le'])]
         elif topic == 'trigonometric':
             if type_ == 'eq':
-                labels = ["Корень (число, радианы):"]
+                fields = [("Корень (число, радианы):", 'entry', None)]
             else:
-                labels = ["Корень (число, радианы):", "Тип решения (gt, lt, ge, le):"]
+                fields = [("Корень (число, радианы):", 'entry', None),
+                          ("Тип решения:", 'combobox', ['gt', 'lt', 'ge', 'le'])]
         elif topic == 'sys_linear':
-            labels = ["x =", "y ="]
+            fields = [("x =", 'entry', None), ("y =", 'entry', None)]
         elif topic == 'sys_nonlinear':
-            labels = ["x =", "y ="]
+            fields = [("x =", 'entry', None), ("y =", 'entry', None)]
         else:
-            labels = ["Введите данные:"]
+            fields = [("Введите данные:", 'entry', None)]
 
-        # Создаём поля ввода с пояснениями
-        for i, label in enumerate(labels):
+        # Создаём поля
+        for i, (label_text, field_type, options) in enumerate(fields):
             frame = tk.Frame(self.input_frame, bg='#34495e')
             frame.grid(row=i, column=0, sticky="ew", pady=5)
-            frame.grid_columnconfigure(0, weight=0)  # метка
-            frame.grid_columnconfigure(1, weight=1)  # поле ввода
+            frame.grid_columnconfigure(0, weight=0)
+            frame.grid_columnconfigure(1, weight=1)
 
-            lbl = tk.Label(frame, text=label, font=("Arial", 12), bg='#34495e', fg='white')
+            lbl = tk.Label(frame, text=label_text, font=("Arial", 12), bg='#34495e', fg='white')
             lbl.grid(row=0, column=0, padx=(0, 10), sticky="w")
 
-            entry = tk.Entry(frame, font=("Arial", 12))
-            entry.grid(row=0, column=1, sticky="ew")
-            self.entries.append(entry)
-
-            # Если это поле для типа решения, добавим подсказку
-            if "Тип решения" in label:
+            if field_type == 'entry':
+                entry = tk.Entry(frame, font=("Arial", 12))
+                entry.grid(row=0, column=1, sticky="ew")
+                self.entries.append(entry)
+                self.entry_values.append(None)  # не используется
+            elif field_type == 'combobox':
+                # Создаём Combobox с выпадающим списком
+                var = tk.StringVar()
+                if options:
+                    var.set(options[0])  # значение по умолчанию
+                combo = ttk.Combobox(frame, textvariable=var, values=options, state="readonly", font=("Arial", 12))
+                combo.grid(row=0, column=1, sticky="ew")
+                self.entries.append(combo)
+                self.entry_values.append(var)  # сохраняем переменную для получения значения
+                # Добавляем пояснение под комбобоксом
                 hint_frame = tk.Frame(self.input_frame, bg='#34495e')
                 hint_frame.grid(row=i+1, column=0, sticky="ew", pady=(0, 10))
                 hint_frame.grid_columnconfigure(0, weight=1)
-                hint_text = "gt - больше, lt - меньше, ge - больше или равно, le - меньше или равно"
+                hint_text = "gt - больше (> 0), lt - меньше (< 0), ge - больше или равно (>= 0), le - меньше или равно (<= 0)"
                 hint_lbl = tk.Label(hint_frame, text=hint_text, font=("Arial", 10),
                                     bg='#34495e', fg='#bdc3c7', justify='left')
                 hint_lbl.grid(row=0, column=0, sticky="w")
 
-        # Запасной вариант: если ничего не создано, выведем сообщение
+        # Если полей нет, выводим сообщение
         if not self.entries:
             tk.Label(self.input_frame, text="Нет полей для ввода", bg='#34495e', fg='white').grid()
 
@@ -249,7 +259,14 @@ class InputPage(tk.Frame):
         try:
             topic = self.controller.data.get('topic')
             type_ = self.controller.data.get('type')
-            values = [e.get().strip() for e in self.entries]
+            # Собираем значения: для Entry - get(), для Combobox - из переменной
+            values = []
+            for i, widget in enumerate(self.entries):
+                if isinstance(widget, ttk.Combobox):
+                    val = self.entry_values[i].get().strip()
+                else:
+                    val = widget.get().strip()
+                values.append(val)
 
             result = ""
             if topic == 'linear':
@@ -258,9 +275,9 @@ class InputPage(tk.Frame):
                     result = Generators.linear_equation(root)
                 else:
                     boundary = float(values[0])
-                    sol_type = values[1].strip().lower()
+                    sol_type = values[1].lower()
                     if sol_type not in ('gt', 'lt', 'ge', 'le'):
-                        raise ValueError("Тип решения должен быть gt, lt, ge или le")
+                        raise ValueError("Неверный тип решения")
                     result = Generators.linear_inequality(boundary, sol_type)
             elif topic == 'quadratic':
                 if type_ == 'eq':
@@ -272,9 +289,9 @@ class InputPage(tk.Frame):
                     roots = list(map(float, values[0].split()))
                     if len(roots) != 2:
                         raise ValueError("Введите 2 числа")
-                    sol_type = values[1].strip().lower()
+                    sol_type = values[1].lower()
                     if sol_type not in ('gt', 'lt', 'ge', 'le'):
-                        raise ValueError("Тип решения должен быть gt, lt, ge или le")
+                        raise ValueError("Неверный тип решения")
                     result = Generators.quadratic_inequality(roots, sol_type)
             elif topic == 'cubic':
                 roots = list(map(float, values[0].split()))
@@ -287,9 +304,9 @@ class InputPage(tk.Frame):
                     result = Generators.rational_equation(root)
                 else:
                     root = float(values[0])
-                    sol_type = values[1].strip().lower()
+                    sol_type = values[1].lower()
                     if sol_type not in ('gt', 'lt', 'ge', 'le'):
-                        raise ValueError("Тип решения должен быть gt, lt, ge или le")
+                        raise ValueError("Неверный тип решения")
                     result = Generators.rational_inequality(root, sol_type)
             elif topic == 'irrational':
                 if type_ == 'eq':
@@ -297,9 +314,9 @@ class InputPage(tk.Frame):
                     result = Generators.irrational_equation(root)
                 else:
                     root = float(values[0])
-                    sol_type = values[1].strip().lower()
+                    sol_type = values[1].lower()
                     if sol_type not in ('gt', 'lt', 'ge', 'le'):
-                        raise ValueError("Тип решения должен быть gt, lt, ge или le")
+                        raise ValueError("Неверный тип решения")
                     result = Generators.irrational_inequality(root, sol_type)
             elif topic == 'exponential':
                 if type_ == 'eq':
@@ -307,9 +324,9 @@ class InputPage(tk.Frame):
                     result = Generators.exponential_equation(root)
                 else:
                     root = float(values[0])
-                    sol_type = values[1].strip().lower()
+                    sol_type = values[1].lower()
                     if sol_type not in ('gt', 'lt', 'ge', 'le'):
-                        raise ValueError("Тип решения должен быть gt, lt, ge или le")
+                        raise ValueError("Неверный тип решения")
                     result = Generators.exponential_inequality(root, sol_type)
             elif topic == 'logarithmic':
                 if type_ == 'eq':
@@ -317,9 +334,9 @@ class InputPage(tk.Frame):
                     result = Generators.logarithmic_equation(root)
                 else:
                     root = float(values[0])
-                    sol_type = values[1].strip().lower()
+                    sol_type = values[1].lower()
                     if sol_type not in ('gt', 'lt', 'ge', 'le'):
-                        raise ValueError("Тип решения должен быть gt, lt, ge или le")
+                        raise ValueError("Неверный тип решения")
                     result = Generators.logarithmic_inequality(root, sol_type)
             elif topic == 'trigonometric':
                 if type_ == 'eq':
@@ -327,9 +344,9 @@ class InputPage(tk.Frame):
                     result = Generators.trigonometric_equation(root)
                 else:
                     root = float(values[0])
-                    sol_type = values[1].strip().lower()
+                    sol_type = values[1].lower()
                     if sol_type not in ('gt', 'lt', 'ge', 'le'):
-                        raise ValueError("Тип решения должен быть gt, lt, ge или le")
+                        raise ValueError("Неверный тип решения")
                     result = Generators.trigonometric_inequality(root, sol_type)
             elif topic == 'sys_linear':
                 x = float(values[0])
@@ -352,7 +369,6 @@ class InputPage(tk.Frame):
             result_label = tk.Label(self.result_frame, text=result, font=("Arial", 14),
                                     bg='#34495e', fg='#f1c40f', wraplength=600, justify='left')
             result_label.grid(row=1, column=0, sticky="nw")
-            # Разрешаем метке с результатом расширяться
             self.result_frame.grid_rowconfigure(1, weight=1)
 
         except Exception as e:
